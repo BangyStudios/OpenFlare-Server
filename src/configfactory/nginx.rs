@@ -1,46 +1,46 @@
-pub fn get_config_https(host : &str, server : &str, cache_max_size : &str, cache_ttl : &str) -> String {
-    let host_underscore = host.replace(".", "_");
+pub fn get_config_https(host_website : &str, host_origin : &str, cache_max_size : &str, cache_ttl : &str) -> String {
+    let host_website_us = host_website.replace(".", "_");
     let config = format!(
-        r#"proxy_cache_path /var/www/cache/{host} levels=1:2 keys_zone={host_underscore}:10m max_size={cache_max_size} inactive={cache_ttl} use_temp_path=off;
+        r#"proxy_cache_path /var/www/cache/{host_website} levels=1:2 keys_zone={host_website_us}:10m max_size={cache_max_size} inactive={cache_ttl} use_temp_path=off;
 
 server {{
-    server_name {host};
+    server_name {host_website};
 
     location / {{
-        proxy_pass https://{server}.edge.icbix.com;
+        proxy_pass https://{host_origin};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # Enable caching
-        proxy_cache ban_gy;
+        proxy_cache {host_website_us};
         proxy_cache_valid 200 302 {cache_ttl};
         proxy_cache_valid 404 1m;
         add_header X-Proxy-Cache $upstream_cache_status;
     }}
 
     listen 443 ssl;
-    ssl_certificate /var/www/ssl/{host}/fullchain.pem;
-    ssl_certificate_key /var/www/ssl/{host}/privkey.pem;
+    ssl_certificate /var/www/ssl/{host_website}/fullchain.pem;
+    ssl_certificate_key /var/www/ssl/{host_website}/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
 
 }}
 
 server {{
-    if ($host = {host}) {{
+    if ($host = {host_website}) {{
         return 301 https://$host$request_uri;
     }}
 
     listen 80;
-    server_name {host};
+    server_name {host_website};
     return 404;
 
 }}
 "#,
-        host = host, 
-        server = server
+        host_website = host_website, 
+        host_origin = host_origin
     );
     return config;
 }
